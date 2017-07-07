@@ -35,7 +35,7 @@ patterns = [
     ("\\$\\d+", TokenType("funcarg", [
         rfunc("\\$(\\d+)", "\\1", int)
     ])),
-    ("(return|if|elif|while|import)", TokenType("keyword")),
+    ("(return|if|elif|while|foreach|import|include|pyimport|pyinclude)", TokenType("keyword")),
     ("(\\#|>(=|>=?)?|<(=|<=?)?|-[=-]?|\\+[=\\+]?|==?|\\*(=|\\*=?)?|!=?|@@?|%=?|/=?|\\.)", TokenType("operator")),
     ("\\[", TokenType("listhead")),
     ("\\]", TokenType("listtail")),

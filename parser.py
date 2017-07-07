@@ -140,7 +140,7 @@ class ParseTree():
         elif self.target.type == "return":
             self.target.add_child(child)
             self.target = child
-        elif self.target.type in ["if", "elif", "while"]:
+        elif self.target.type in ["if", "elif", "while", "foreach"]:
             self.target.add_child(child)
     def pushItem(self, item):
         child = ParseTree(type = "item", content = item)
@@ -159,7 +159,8 @@ class ParseTree():
             self.target.add_child(child)
             self.target = child
         elif self.target.type == "item":
-            raise RuntimeError("Cannot push item onto another item on AST")
+            self.target = self
+            self.pushItem(item)
         elif self.target.type == "operator":
             if self.target.content in prefix and not self.target.children:
                 self.target.add_child(child)
@@ -173,7 +174,7 @@ class ParseTree():
             else:
                 self.target = self.target.root
                 self.pushItem(item)
-        elif self.target.type in ["return", "if", "elif", "while", "import"]:
+        elif self.target.type in ["return", "if", "elif", "while", "foreach" "import", "include", "pyimport", "pyinclude"]:
             self.target.add_child(child)
             self.target = child
         elif self.target.type == "bracket" and self.target.flag:
@@ -217,7 +218,7 @@ class Parser():
             "funchead": ("bloctail", "function"),
             "thenhead": ("bloctail", "then", ["if", "elif"]),
             "elsehead": ("bloctail", "else", ["if", "elif"]),
-            "dohead": ("bloctail", "do", ["while"])
+            "dohead": ("bloctail", "do", ["while", "foreach"])
         }
         ends = ["listtail", "braktail", "bloctail"]
         typed = ["else"]
@@ -275,16 +276,13 @@ class Parser():
                 tree.target = tree
             elif self.tokens[index].type == "keyword":
                 requiredParent = {
-                    "if": [],
-                    "return": [],
-                    "while": [],
-                    "import": [],
                     "elif": ["if", "elif"],
-                    "do": ["while"]
+                    "do": ["while", "foreach"]
                 }
-                if self.tokens[index].content in ["if", "return", "elif", "while", "import"]:
-                    while tree.target.type not in requiredParent[self.tokens[index].content] and requiredParent[self.tokens[index].content]:
-                        tree.target = tree.target.root
+                if self.tokens[index].content in ["if", "return", "elif", "while", "foreach", "import", "include", "pyimport", "pyinclude"]:
+                    if self.tokens[index].content in requiredParent:
+                        while tree.target.type not in requiredParent[self.tokens[index].content] and requiredParent[self.tokens[index].content]:
+                            tree.target = tree.target.root
                     child = ParseTree(self.tokens[index].content)
                     tree.target.add_child(child)
                     tree.target = child

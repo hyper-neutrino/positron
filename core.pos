@@ -1,0 +1,12 @@
+map = function {
+  result = []
+  func = $1
+  foreach ($2) do {
+    result += [func@$1]
+  }
+  return result
+}
+
+sysexec = function {
+  exec@("__import__('os').system('%s')" % $1)
+}

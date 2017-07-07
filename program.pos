@@ -1,0 +1,2 @@
+pyinclude math;
+print@sin@90

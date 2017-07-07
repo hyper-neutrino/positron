@@ -15,6 +15,12 @@ if __name__ == '__main__':
                     parser.addToken(next)
             tree = parser.fill()
             evaluator = getDefaultInterpreter()
+            imports = evaluator.Import("core.pos")
+            for key in imports:
+                evaluator.symbolmap[key] = imports[key]
+            imports = evaluator.PythonImport("core")
+            for key in imports:
+                evaluator.symbolmap[key] = imports[key]
             for subtree in tree.children:
                 try:
                     evaluator.evaluate(subtree)
