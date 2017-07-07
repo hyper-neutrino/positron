@@ -1,7 +1,7 @@
 from tokenizer import *
 from parser import *
 from logger import *
-import sympy
+import sympy, sys, os
 
 """
 
@@ -15,11 +15,12 @@ regex
 """
 
 def getDefaultInterpreter():
-    interpreter = Interpreter(args = None, func_args = None, tree = None)
-    imports = interpreter.Import("core.pos", False)
+    directory = os.path.dirname(os.path.realpath(__file__))
+    interpreter = Interpreter(args = None, func_args = None, tree = None, symbolmap = {}, directory = directory)
+    imports = interpreter.Import(directory, "core.pos", False)
     for key in imports:
         interpreter.symbolmap[key] = imports[key]
-    imports = interpreter.PythonImport("core")
+    imports = interpreter.PythonImport(directory, "core")
     for key in imports:
         interpreter.symbolmap[key] = imports[key]
     return interpreter
@@ -193,11 +194,12 @@ class Return():
         self.value = value
 
 class Interpreter():
-    def __init__(self, args = None, func_args = None, tree = None, symbolmap = None):
+    def __init__(self, args = None, func_args = None, tree = None, symbolmap = None, directory = ""):
         self.tree = tree or ParseTree()
         self.func_args = func_args
         self.args = args or []
         self.symbolmap = symbolmap or {}
+        self.directory = directory
     def evaluate(self, node, preserve_ref = False, func_args = None):
         log("EVAL: %s" % str(node))
         log("FUNC: %s" % str(func_args))
@@ -339,9 +341,9 @@ class Interpreter():
                 packages = self.evaluate(node.children[0], True, func_args)
                 if hasattr(packages, "__iter__"):
                     for package in packages:
-                        self.symbolmap[package.name] = self.PythonImport(package.name)
+                        self.symbolmap[package.name] = self.PythonImport(self.directory, package.name)
                 else:
-                    self.symbolmap[packages.name] = self.PythonImport(packages.name)
+                    self.symbolmap[packages.name] = self.PythonImport(self.directory, packages.name)
             else:
                 raise RuntimeError("PYIMPORT statement should be in the format `pyimport file1[, file2, ...]`")
         elif node.type == "pyinclude":
@@ -350,21 +352,21 @@ class Interpreter():
                 packages = self.evaluate(node.children[0], True, func_args)
                 if hasattr(packages, "__iter__"):
                     for package in packages:
-                        syms = self.PythonImport(package.name)
+                        syms = self.PythonImport(self.directory, package.name)
                         for key in syms:
                             self.symbolmap[key] = syms[key]
                 else:
-                    syms = self.PythonImport(packages.name)
+                    syms = self.PythonImport(self.directory, packages.name)
                     for key in syms:
                         self.symbolmap[key] = syms[key]
             else:
                 raise RuntimeError("PYINCLUDE statement should be in the format `pyinclude file1[, file2, ...]`")
         elif node.type == "null":
             return actualNone()
-    def Import(self, package, use_new_interpreter = True):
+    def Import(self, directory, package, use_new_interpreter = True):
         interpreter = getDefaultInterpreter() if use_new_interpreter else self
         interpreter.args = self.args
-        with open(package, "r") as f:
+        with open(directory + "/" + package, "r") as f:
             code = f.read()
             tokenizer = Tokenizer(code)
             parser = Parser([])
@@ -380,7 +382,7 @@ class Interpreter():
                     print(tree)
                     raise
         return interpreter.symbolmap
-    def PythonImport(self, package):
+    def PythonImport(self, directory, package):
         imported = __import__(package)
         syms = {}
         for attr in dir(imported):
