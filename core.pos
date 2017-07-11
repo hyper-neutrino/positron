@@ -1,12 +1,24 @@
 map = function {
-  result = []
-  func = $1
+  result = [];
+  func = $1;
   foreach ($2) do {
-    result += [func@$1]
-  }
-  return result
-}
+    result += [func@$1];
+  };
+  return result;
+};
 
 sysexec = function {
-  exec@("__import__('os').system('%s')" % $1)
-}
+  exec@("__import__('os').system('%s')" % $1);
+};
+
+evalinput = function {
+  return #(input@$0);
+};
+
+die = function {
+  if $0 then {
+    error $1;
+  } else {
+    error;
+  };
+};

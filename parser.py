@@ -174,7 +174,7 @@ class ParseTree():
             else:
                 self.target = self.target.root
                 self.pushItem(item)
-        elif self.target.type in ["return", "if", "elif", "while", "foreach" "import", "include", "pyimport", "pyinclude"]:
+        elif self.target.type in ["return", "if", "elif", "while", "foreach" "import", "include", "pyimport", "pyinclude", "error"]:
             self.target.add_child(child)
             self.target = child
         elif self.target.type == "bracket" and self.target.flag:
@@ -216,6 +216,7 @@ class Parser():
             "listhead": ("listtail", "list"),
             "brakhead": ("braktail", "bracket"),
             "funchead": ("bloctail", "function"),
+            "lambdahead": ("bloctail", "lambda"),
             "thenhead": ("bloctail", "then", ["if", "elif"]),
             "elsehead": ("bloctail", "else", ["if", "elif"]),
             "dohead": ("bloctail", "do", ["while", "foreach"])
@@ -261,7 +262,7 @@ class Parser():
                     if inner_tokens:
                         parser = Parser(inner_tokens)
                         subtree = parser.fill()
-                        if token.type in ["funchead", "thenhead", "elsehead", "dohead"]:
+                        if token.type in ["funchead", "lambdahead", "thenhead", "elsehead", "dohead"]:
                             for subchild in subtree.children:
                                 child.add_child(subchild)
                         else:
@@ -279,7 +280,7 @@ class Parser():
                     "elif": ["if", "elif"],
                     "do": ["while", "foreach"]
                 }
-                if self.tokens[index].content in ["if", "return", "elif", "while", "foreach", "import", "include", "pyimport", "pyinclude"]:
+                if self.tokens[index].content in ["if", "return", "elif", "while", "foreach", "import", "include", "pyimport", "pyinclude", "error"]:
                     if self.tokens[index].content in requiredParent:
                         while tree.target.type not in requiredParent[self.tokens[index].content] and requiredParent[self.tokens[index].content]:
                             tree.target = tree.target.root

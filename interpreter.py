@@ -14,13 +14,14 @@ regex
 
 """
 
+directory = os.path.dirname(os.path.realpath(__file__))
+
 def getDefaultInterpreter():
-    directory = os.path.dirname(os.path.realpath(__file__))
-    interpreter = Interpreter(args = None, func_args = None, tree = None, symbolmap = {}, directory = directory)
-    imports = interpreter.Import(directory, "core.pos", False)
+    interpreter = Interpreter(args = None, func_args = None, tree = None, symbolmap = {})
+    imports = interpreter.Import("core.pos", False)
     for key in imports:
         interpreter.symbolmap[key] = imports[key]
-    imports = interpreter.PythonImport(directory, "core")
+    imports = interpreter.PythonImport("core")
     for key in imports:
         interpreter.symbolmap[key] = imports[key]
     return interpreter
@@ -159,7 +160,7 @@ def exp(ref1, ref2, symbolmap):
     return ref1 ** ref2 # TODO
 
 def inv(ref, symbolmap):
-    ref = _(ref)
+    ref = _(ref, symbolmap)
     return not ref # TODO
 
 def inc(ref, symbolmap):
@@ -170,12 +171,12 @@ def dec(ref, symbolmap):
 
 def postinc(ref, symbolmap):
     pre = _(ref, symbolmap)
-    asn(ref, _(ref) + 1, symbolmap)
+    asn(ref, pre + 1, symbolmap)
     return pre
 
 def postdec(ref, symbolmap):
     pre = _(ref, symbolmap)
-    asn(ref, _(ref) - 1, symbolmap)
+    asn(ref, pre - 1, symbolmap)
     return pre
 
 def factorial(ref, symbolmap):
@@ -194,12 +195,11 @@ class Return():
         self.value = value
 
 class Interpreter():
-    def __init__(self, args = None, func_args = None, tree = None, symbolmap = None, directory = ""):
+    def __init__(self, args = None, func_args = None, tree = None, symbolmap = None):
         self.tree = tree or ParseTree()
         self.func_args = func_args
         self.args = args or []
         self.symbolmap = symbolmap or {}
-        self.directory = directory
     def evaluate(self, node, preserve_ref = False, func_args = None):
         log("EVAL: %s" % str(node))
         log("FUNC: %s" % str(func_args))
@@ -236,7 +236,7 @@ class Interpreter():
                     else:
                         result = tuple([x for x in [self.evaluate(child, keep_ref, func_args) for child in node.children] if type(x) != type(actualNone())])
                     for postop in postops:
-                        result = postfix_variants[postop](result)
+                        result = postfix_variants[postop](result, self.symbolmap)
                     return result
                 else:
                     return ()
@@ -250,6 +250,17 @@ class Interpreter():
                         value = interpreter.evaluate(child)
                         if type(value) == type(Return("")):
                             return value.value
+                return Function(function)
+            elif node.content == "lambda":
+                def function(*arguments):
+                    syms = {}
+                    for key in self.symbolmap:
+                        syms[key] = self.symbolmap[key]
+                    interpreter = Interpreter(self.args, arguments, None, syms)
+                    ret = None
+                    for child in node.children:
+                        ret = interpreter.evaluate(child)
+                    return ret
                 return Function(function)
             else:
                 keep_ref = any(child.content in assignment_operators for child in node.children)
@@ -268,7 +279,7 @@ class Interpreter():
                     if self.func_args == None and func_args == None:
                         raise RuntimeError("Cannot get function arguments outside of a function")
                     elif node.content.content == 0:
-                        return func_args or self.func_args
+                        return list(func_args or self.func_args)
                     elif func_args and len(func_args) > node.content.content - 1:
                         result = func_args[node.content.content - 1]
                     elif self.func_args and len(self.func_args) > node.content.content - 1:
@@ -284,33 +295,50 @@ class Interpreter():
             if len(node.children) < 2:
                 raise RuntimeError("IF statement should be in the format `if <condition> then { <code> } [ elif <condition> then { <code> }...] [ else { <code> } ]`")
             else:
-                if self.evaluate(node.children[0], False, func_args):
+                if _(self.evaluate(node.children[0], False, func_args), self.symbolmap):
                     for child in node.children[1].children:
-                        self.evaluate(child, False, func_args)
+                        value = self.evaluate(child, False, func_args)
+                        if (self.func_args or func_args) and type(value) == type(Return("")):
+                            return value
                 elif node.children[2:]:
-                    self.evaluate(node.children[2], False, func_args)
+                    value = self.evaluate(node.children[2], False, func_args)
+                    if (self.func_args or func_args) and type(value) == type(Return("")):
+                        return value
         elif node.type == "while":
             if len(node.children) != 2:
                 raise RuntimeError("WHILE statement should be in the format `while <condition> do { <code> }`")
             else:
-                while self.evaluate(node.children[0], False, func_args):
+                while _(self.evaluate(node.children[0], False, func_args), self.symbolmap):
                     for child in node.children[1].children:
-                        self.evaluate(child, False, func_args)
+                        value = self.evaluate(child, False, func_args)
+                        if (self.func_args or func_args) and type(value) == type(Return("")):
+                            return value
         elif node.type == "foreach":
             if len(node.children) != 2:
                 raise RuntimeError("FOREACH statement should be in the format `foreach <iterable> do { <code> }`")
             else:
                 for x in self.evaluate(node.children[0], False, func_args):
                     for child in node.children[1].children:
-                        self.evaluate(child, False, func_args = [x])
+                        value = self.evaluate(child, False, func_args = [x])
+                        if (self.func_args or func_args) and type(value) == type(Return("")):
+                            return value
         elif node.type == "else":
             for child in node.children:
-                self.evaluate(child, False, func_args)
+                value = self.evaluate(child, False, func_args)
+                if (self.func_args or func_args) and type(value) == type(Return("")):
+                    return value
         elif node.type == "return":
             if node.children:
                 return Return(self.evaluate(node.children[0], False, func_args))
             else:
                 return Return(None)
+        elif node.type == "error":
+            if node.children:
+                print("PositronError:", str(self.evaluate(node.children[0], False, func_args)))
+                exit(0)
+            else:
+                print("PositronError: An error was thrown by the Positron script")
+                exit(0)
         elif node.type == "import":
             if len(node.children) == 1:
                 packages = self.evaluate(node.children[0], True, func_args)
@@ -341,9 +369,9 @@ class Interpreter():
                 packages = self.evaluate(node.children[0], True, func_args)
                 if hasattr(packages, "__iter__"):
                     for package in packages:
-                        self.symbolmap[package.name] = self.PythonImport(self.directory, package.name)
+                        self.symbolmap[package.name] = self.PythonImport(package.name)
                 else:
-                    self.symbolmap[packages.name] = self.PythonImport(self.directory, packages.name)
+                    self.symbolmap[packages.name] = self.PythonImport(packages.name)
             else:
                 raise RuntimeError("PYIMPORT statement should be in the format `pyimport file1[, file2, ...]`")
         elif node.type == "pyinclude":
@@ -352,18 +380,18 @@ class Interpreter():
                 packages = self.evaluate(node.children[0], True, func_args)
                 if hasattr(packages, "__iter__"):
                     for package in packages:
-                        syms = self.PythonImport(self.directory, package.name)
+                        syms = self.PythonImport(package.name)
                         for key in syms:
                             self.symbolmap[key] = syms[key]
                 else:
-                    syms = self.PythonImport(self.directory, packages.name)
+                    syms = self.PythonImport(packages.name)
                     for key in syms:
                         self.symbolmap[key] = syms[key]
             else:
                 raise RuntimeError("PYINCLUDE statement should be in the format `pyinclude file1[, file2, ...]`")
         elif node.type == "null":
             return actualNone()
-    def Import(self, directory, package, use_new_interpreter = True):
+    def Import(self, package, use_new_interpreter = True):
         interpreter = getDefaultInterpreter() if use_new_interpreter else self
         interpreter.args = self.args
         with open(directory + "/" + package, "r") as f:
@@ -382,7 +410,7 @@ class Interpreter():
                     print(tree)
                     raise
         return interpreter.symbolmap
-    def PythonImport(self, directory, package):
+    def PythonImport(self, package):
         imported = __import__(package)
         syms = {}
         for attr in dir(imported):
