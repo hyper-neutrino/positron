@@ -23,37 +23,37 @@ To assign a value to a symbol, use the `=` operator. For example, `x = 2` assign
 ### functions
 A function object looks like this:
 
-  function {
-    // Do something; arguments are $1, $2, ... with $0 being the whole list of arguments
-  }
+    function {
+      // Do something; arguments are $1, $2, ... with $0 being the whole list of arguments
+    }
 
 This can be treated like any other object, including being passed into other functions like in Python.
 
 ### conditionals
 A conditional looks like this:
 
-  if <condition> then {
-    // Do something
-  } elif <condition> then {
-    // Do something
-  } else {
-    // Do something
-  }
+    if <condition> then {
+      // Do something
+    } elif <condition> then {
+      // Do something
+    } else {
+      // Do something
+    }
 
 If `<condition>` is a simple statement, it doesn't need brackets around it, but sometimes it does. Unless you're using this language for code golf, use brackets anyway :P
 
 ### loops
 A while loop looks like this:
 
-  while <condition> do {
-    // Do something
-  }
+    while <condition> do {
+      // Do something
+    }
 
 A foreach loop looks like this:
 
-  foreach <list> do {
-    // Do something; $1 is the current element
-  }
+    foreach <list> do {
+      // Do something; $1 is the current element
+    }
 
 ### function calls
 Function calls are done like so: `function@argument`, or with multiple arguments, `function@(argument, argument, ...)`. To pass an actual tuple as one of the arguments, use `function@((content, content),)`. Note that `function@x` will splat the argument if `x` is a tuple, so only use tuples when that is the desired behavior; otherwise, use lists.
